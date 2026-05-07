@@ -1,0 +1,8 @@
+node_modules/
+.wxt/
+.output/
+dist/
+coverage/
+*.local
+.env.local
+.env.*.local
