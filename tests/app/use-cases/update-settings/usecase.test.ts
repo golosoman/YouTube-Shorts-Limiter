@@ -12,11 +12,22 @@ describe("UpdateSettingsUseCase", () => {
     const validator = new FakeSettingsValidator();
     const useCase = new UpdateSettingsUseCase(repository, validator);
 
-    await useCase.execute({ allowedMinutes: 2, cooldownMinutes: 3 });
+    await useCase.execute({
+      shortsAllowedMinutes: 2,
+      shortsCooldownMinutes: 3,
+      youtubeAllowedMinutes: 4,
+      youtubeCooldownMinutes: 5,
+    });
 
     const expectedSettings = {
-      allowedMs: DurationMs.fromMinutes(2).value,
-      cooldownMs: DurationMs.fromMinutes(3).value,
+      shorts: {
+        allowedMs: DurationMs.fromMinutes(2).value,
+        cooldownMs: DurationMs.fromMinutes(3).value,
+      },
+      youtube: {
+        allowedMs: DurationMs.fromMinutes(4).value,
+        cooldownMs: DurationMs.fromMinutes(5).value,
+      },
     };
     expect(validator.validated).toEqual(expectedSettings);
     expect(repository.saved).toEqual(expectedSettings);
@@ -27,9 +38,14 @@ describe("UpdateSettingsUseCase", () => {
     const validator = new ThrowingSettingsValidator();
     const useCase = new UpdateSettingsUseCase(repository, validator);
 
-    await expect(useCase.execute({ allowedMinutes: 2, cooldownMinutes: 3 })).rejects.toBeInstanceOf(
-      UpdateSettingsError,
-    );
+    await expect(
+      useCase.execute({
+        shortsAllowedMinutes: 2,
+        shortsCooldownMinutes: 3,
+        youtubeAllowedMinutes: 4,
+        youtubeCooldownMinutes: 5,
+      }),
+    ).rejects.toBeInstanceOf(UpdateSettingsError);
   });
 
   it("wraps repository errors", async () => {
@@ -37,9 +53,14 @@ describe("UpdateSettingsUseCase", () => {
     const validator = new FakeSettingsValidator();
     const useCase = new UpdateSettingsUseCase(repository, validator);
 
-    await expect(useCase.execute({ allowedMinutes: 2, cooldownMinutes: 3 })).rejects.toBeInstanceOf(
-      UpdateSettingsError,
-    );
+    await expect(
+      useCase.execute({
+        shortsAllowedMinutes: 2,
+        shortsCooldownMinutes: 3,
+        youtubeAllowedMinutes: 4,
+        youtubeCooldownMinutes: 5,
+      }),
+    ).rejects.toBeInstanceOf(UpdateSettingsError);
   });
 });
 
@@ -47,7 +68,7 @@ class FakeSettingsRepository implements SettingsRepository {
   saved: WatchPolicy | null = null;
 
   get(): Promise<WatchPolicy> {
-    return Promise.resolve({ allowedMs: 0, cooldownMs: 0 });
+    return Promise.resolve(createEmptySettings());
   }
 
   save(settings: WatchPolicy): Promise<void> {
@@ -77,4 +98,11 @@ class ThrowingSettingsValidator implements SettingsValidator {
     void _settings;
     throw new Error("invalid settings");
   }
+}
+
+function createEmptySettings(): WatchPolicy {
+  return {
+    shorts: { allowedMs: 0, cooldownMs: 0 },
+    youtube: { allowedMs: 0, cooldownMs: 0 },
+  };
 }

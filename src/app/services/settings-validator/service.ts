@@ -6,16 +6,28 @@ import type { WatchPolicy } from "@/domain/entities/WatchPolicy";
 export class SettingsValidatorService implements SettingsValidator {
   validate(settings: WatchPolicy): WatchPolicy {
     this.assertDuration(
-      settings.allowedMs,
-      config.validation.settings.allowedDuration.min.value,
-      config.validation.settings.allowedDuration.max.value,
-      "Allowed duration is outside the supported range.",
+      settings.shorts.allowedMs,
+      config.validation.settings.shorts.allowedDuration.min.value,
+      config.validation.settings.shorts.allowedDuration.max.value,
+      "Shorts allowed duration is outside the supported range.",
     );
     this.assertDuration(
-      settings.cooldownMs,
-      config.validation.settings.cooldownDuration.min.value,
-      config.validation.settings.cooldownDuration.max.value,
-      "Cooldown duration is outside the supported range.",
+      settings.shorts.cooldownMs,
+      config.validation.settings.shorts.cooldownDuration.min.value,
+      config.validation.settings.shorts.cooldownDuration.max.value,
+      "Shorts cooldown duration is outside the supported range.",
+    );
+    this.assertDuration(
+      settings.youtube.allowedMs,
+      config.validation.settings.youtube.allowedDuration.min.value,
+      config.validation.settings.youtube.allowedDuration.max.value,
+      "YouTube allowed duration is outside the supported range.",
+    );
+    this.assertDuration(
+      settings.youtube.cooldownMs,
+      config.validation.settings.youtube.cooldownDuration.min.value,
+      config.validation.settings.youtube.cooldownDuration.max.value,
+      "YouTube cooldown duration is outside the supported range.",
     );
 
     return settings;

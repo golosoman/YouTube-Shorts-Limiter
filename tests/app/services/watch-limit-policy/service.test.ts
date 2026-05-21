@@ -3,86 +3,170 @@ import { WatchLimitPolicyService } from "@/app/services/watch-limit-policy/servi
 import { BlockReason } from "@/domain/entities/PolicyDecision";
 import type { UsageState } from "@/domain/entities/UsageState";
 import type { WatchPolicy } from "@/domain/entities/WatchPolicy";
+import { WatchScope } from "@/domain/entities/WatchScope";
 
 describe("WatchLimitPolicyService", () => {
   const service = new WatchLimitPolicyService();
-  const policy: WatchPolicy = { allowedMs: 1_000, cooldownMs: 5_000 };
+  const policy: WatchPolicy = {
+    shorts: { allowedMs: 1_000, cooldownMs: 5_000 },
+    youtube: { allowedMs: 2_000, cooldownMs: 10_000 },
+  };
 
   it("does not add elapsed time on the first tick", () => {
-    const decision = service.evaluateWatchingShorts(
-      { usedMs: 100, lastTickAtMs: null, blockedUntilMs: null },
+    const decision = service.evaluate(
+      {
+        ...createUsageState(),
+        youtube: { usedMs: 100, lastTickAtMs: null, blockedUntilMs: null },
+      },
       policy,
       1_000,
+      [WatchScope.YouTube],
     );
 
     expect(decision.kind).toBe("allow");
-    expect(decision.nextState).toEqual({
+    expect(decision.nextState.youtube).toEqual({
       usedMs: 100,
       lastTickAtMs: 1_000,
       blockedUntilMs: null,
     });
   });
 
-  it("adds elapsed time when the previous tick exists", () => {
-    const decision = service.evaluateWatchingShorts(
-      { usedMs: 100, lastTickAtMs: 1_000, blockedUntilMs: null },
+  it("updates only YouTube for ordinary YouTube watching", () => {
+    const decision = service.evaluate(
+      {
+        shorts: { usedMs: 50, lastTickAtMs: 500, blockedUntilMs: null },
+        youtube: { usedMs: 100, lastTickAtMs: 1_000, blockedUntilMs: null },
+      },
       policy,
       1_500,
+      [WatchScope.YouTube],
     );
 
-    expect(decision.nextState.usedMs).toBe(600);
+    expect(decision.nextState).toEqual({
+      shorts: { usedMs: 50, lastTickAtMs: null, blockedUntilMs: null },
+      youtube: { usedMs: 600, lastTickAtMs: 1_500, blockedUntilMs: null },
+    });
+  });
+
+  it("updates Shorts and YouTube for Shorts watching", () => {
+    const decision = service.evaluate(
+      {
+        shorts: { usedMs: 100, lastTickAtMs: 1_000, blockedUntilMs: null },
+        youtube: { usedMs: 200, lastTickAtMs: 1_000, blockedUntilMs: null },
+      },
+      policy,
+      1_500,
+      [WatchScope.Shorts, WatchScope.YouTube],
+    );
+
+    expect(decision.nextState).toEqual({
+      shorts: { usedMs: 600, lastTickAtMs: 1_500, blockedUntilMs: null },
+      youtube: { usedMs: 700, lastTickAtMs: 1_500, blockedUntilMs: null },
+    });
   });
 
   it("clamps negative elapsed time to zero", () => {
-    const decision = service.evaluateWatchingShorts(
-      { usedMs: 100, lastTickAtMs: 1_000, blockedUntilMs: null },
+    const decision = service.evaluate(
+      {
+        ...createUsageState(),
+        youtube: { usedMs: 100, lastTickAtMs: 1_000, blockedUntilMs: null },
+      },
       policy,
       500,
+      [WatchScope.YouTube],
     );
 
-    expect(decision.nextState.usedMs).toBe(100);
+    expect(decision.nextState.youtube.usedMs).toBe(100);
   });
 
-  it("blocks when used time reaches the allowed duration", () => {
-    const decision = service.evaluateWatchingShorts(
-      { usedMs: 900, lastTickAtMs: 1_000, blockedUntilMs: null },
+  it("blocks Shorts only when Shorts are cooling down", () => {
+    const decision = service.evaluate(
+      {
+        ...createUsageState(),
+        shorts: { usedMs: 0, lastTickAtMs: null, blockedUntilMs: 2_000 },
+      },
+      policy,
+      1_000,
+      [WatchScope.Shorts, WatchScope.YouTube],
+    );
+
+    expect(decision.kind).toBe("block");
+    expect(decision.kind === "block" ? decision.reason : null).toBe(
+      BlockReason.ShortsCooldownActive,
+    );
+  });
+
+  it("blocks ordinary YouTube and Shorts when YouTube is cooling down", () => {
+    const ordinaryDecision = service.evaluate(
+      {
+        ...createUsageState(),
+        youtube: { usedMs: 0, lastTickAtMs: null, blockedUntilMs: 2_000 },
+      },
+      policy,
+      1_000,
+      [WatchScope.YouTube],
+    );
+    const shortsDecision = service.evaluate(
+      {
+        ...createUsageState(),
+        youtube: { usedMs: 0, lastTickAtMs: null, blockedUntilMs: 2_000 },
+      },
+      policy,
+      1_000,
+      [WatchScope.Shorts, WatchScope.YouTube],
+    );
+
+    expect(ordinaryDecision.kind === "block" ? ordinaryDecision.reason : null).toBe(
+      BlockReason.YouTubeCooldownActive,
+    );
+    expect(shortsDecision.kind === "block" ? shortsDecision.reason : null).toBe(
+      BlockReason.YouTubeCooldownActive,
+    );
+  });
+
+  it("sets blockedUntilMs when a limit is exceeded", () => {
+    const decision = service.evaluate(
+      {
+        ...createUsageState(),
+        youtube: { usedMs: 1_900, lastTickAtMs: 1_000, blockedUntilMs: null },
+      },
       policy,
       1_100,
+      [WatchScope.YouTube],
     );
 
     expect(decision).toEqual({
       kind: "block",
-      reason: BlockReason.LimitExceeded,
+      reason: BlockReason.YouTubeLimitExceeded,
+      reasons: [BlockReason.YouTubeLimitExceeded],
       nextState: {
-        usedMs: 0,
-        lastTickAtMs: null,
-        blockedUntilMs: 6_100,
+        shorts: { usedMs: 0, lastTickAtMs: null, blockedUntilMs: null },
+        youtube: { usedMs: 0, lastTickAtMs: null, blockedUntilMs: 11_100 },
       },
     });
   });
 
-  it("blocks during cooldown", () => {
-    const state: UsageState = { usedMs: 300, lastTickAtMs: null, blockedUntilMs: 2_000 };
-    const decision = service.evaluateWatchingShorts(state, policy, 1_000);
+  it("clears lastTickAtMs when not watching without losing usage or cooldown", () => {
+    const decision = service.evaluate(
+      {
+        shorts: { usedMs: 300, lastTickAtMs: 1_000, blockedUntilMs: 2_000 },
+        youtube: { usedMs: 400, lastTickAtMs: 1_000, blockedUntilMs: 3_000 },
+      },
+      policy,
+      4_000,
+      [],
+    );
 
-    expect(decision).toEqual({
-      kind: "block",
-      reason: BlockReason.CooldownActive,
-      nextState: state,
-    });
-  });
-
-  it("clears lastTickAtMs when not watching Shorts and preserves usage", () => {
-    expect(
-      service.evaluateNotWatchingShorts({
-        usedMs: 300,
-        lastTickAtMs: 1_000,
-        blockedUntilMs: 2_000,
-      }),
-    ).toEqual({
-      usedMs: 300,
-      lastTickAtMs: null,
-      blockedUntilMs: 2_000,
+    expect(decision.nextState).toEqual({
+      shorts: { usedMs: 300, lastTickAtMs: null, blockedUntilMs: 2_000 },
+      youtube: { usedMs: 400, lastTickAtMs: null, blockedUntilMs: 3_000 },
     });
   });
 });
+
+function createUsageState(): UsageState {
+  return {
+    shorts: { usedMs: 0, lastTickAtMs: null, blockedUntilMs: null },
+    youtube: { usedMs: 0, lastTickAtMs: null, blockedUntilMs: null },
+  };
+}

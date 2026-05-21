@@ -2,9 +2,9 @@ import js from "@eslint/js";
 import prettier from "eslint-config-prettier";
 import tseslint from "typescript-eslint";
 
-const sourceFiles = ["src/**/*.ts"];
-const testFiles = ["tests/**/*.ts"];
-const entrypointFiles = ["src/entrypoints/**/*.ts"];
+const sourceFiles = ["src/**/*.{ts,tsx}"];
+const testFiles = ["tests/**/*.{ts,tsx}"];
+const entrypointFiles = ["src/entrypoints/**/*.{ts,tsx}"];
 const infrastructureFiles = ["src/infrastructure/**/*.ts"];
 const loggerFiles = ["src/infrastructure/logger/**/*.ts"];
 
@@ -135,6 +135,7 @@ export default tseslint.config(
             "@/infrastructure/**",
             "@/composition/**",
             "@/entrypoints/**",
+            "@/presentation/**",
             "@/config/**",
             "@/envs/**",
           ],
@@ -144,6 +145,22 @@ export default tseslint.config(
   },
   {
     files: ["src/app/**/*.ts"],
+    rules: {
+      "no-restricted-imports": [
+        "error",
+        {
+          patterns: [
+            "@/infrastructure/**",
+            "@/composition/**",
+            "@/entrypoints/**",
+            "@/presentation/**",
+          ],
+        },
+      ],
+    },
+  },
+  {
+    files: ["src/presentation/**/*.{ts,tsx}"],
     rules: {
       "no-restricted-imports": [
         "error",

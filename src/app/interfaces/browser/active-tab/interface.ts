@@ -1,5 +1,5 @@
-import type { ActiveTabDto } from "./dto";
+import type { ActiveTabOutputDto } from "./dto";
 
 export interface ActiveTab {
-  getActiveTab(): Promise<ActiveTabDto | null>;
+  getActiveTab(): Promise<ActiveTabOutputDto | null>;
 }

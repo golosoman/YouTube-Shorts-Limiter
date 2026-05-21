@@ -2,15 +2,13 @@ import { describe, expect, it } from "vitest";
 import { InvalidSettingsError } from "@/app/interfaces/services/settings-validator/error";
 import { SettingsValidatorService } from "@/app/services/settings-validator/service";
 import { config } from "@/config";
+import type { WatchPolicy } from "@/domain/entities/WatchPolicy";
 
 describe("SettingsValidatorService", () => {
   const service = new SettingsValidatorService();
 
   it("accepts valid settings", () => {
-    const settings = {
-      allowedMs: config.validation.settings.allowedDuration.min.value,
-      cooldownMs: config.validation.settings.cooldownDuration.min.value,
-    };
+    const settings = createValidSettings();
 
     expect(service.validate(settings)).toEqual(settings);
   });
@@ -18,8 +16,11 @@ describe("SettingsValidatorService", () => {
   it("rejects non-finite values", () => {
     expect(() =>
       service.validate({
-        allowedMs: Number.POSITIVE_INFINITY,
-        cooldownMs: config.validation.settings.cooldownDuration.min.value,
+        ...createValidSettings(),
+        youtube: {
+          ...createValidSettings().youtube,
+          allowedMs: Number.POSITIVE_INFINITY,
+        },
       }),
     ).toThrow(InvalidSettingsError);
   });
@@ -27,8 +28,11 @@ describe("SettingsValidatorService", () => {
   it("rejects values below min", () => {
     expect(() =>
       service.validate({
-        allowedMs: config.validation.settings.allowedDuration.min.value - 1,
-        cooldownMs: config.validation.settings.cooldownDuration.min.value,
+        ...createValidSettings(),
+        shorts: {
+          ...createValidSettings().shorts,
+          allowedMs: config.validation.settings.shorts.allowedDuration.min.value - 1,
+        },
       }),
     ).toThrow(InvalidSettingsError);
   });
@@ -36,9 +40,25 @@ describe("SettingsValidatorService", () => {
   it("rejects values above max", () => {
     expect(() =>
       service.validate({
-        allowedMs: config.validation.settings.allowedDuration.max.value + 1,
-        cooldownMs: config.validation.settings.cooldownDuration.min.value,
+        ...createValidSettings(),
+        youtube: {
+          ...createValidSettings().youtube,
+          allowedMs: config.validation.settings.youtube.allowedDuration.max.value + 1,
+        },
       }),
     ).toThrow(InvalidSettingsError);
   });
 });
+
+function createValidSettings(): WatchPolicy {
+  return {
+    shorts: {
+      allowedMs: config.validation.settings.shorts.allowedDuration.min.value,
+      cooldownMs: config.validation.settings.shorts.cooldownDuration.min.value,
+    },
+    youtube: {
+      allowedMs: config.validation.settings.youtube.allowedDuration.min.value,
+      cooldownMs: config.validation.settings.youtube.cooldownDuration.min.value,
+    },
+  };
+}

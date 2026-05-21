@@ -1,4 +1,6 @@
 export interface UpdateSettingsInputDto {
-  readonly allowedMinutes: number;
-  readonly cooldownMinutes: number;
+  readonly shortsAllowedMinutes: number;
+  readonly shortsCooldownMinutes: number;
+  readonly youtubeAllowedMinutes: number;
+  readonly youtubeCooldownMinutes: number;
 }

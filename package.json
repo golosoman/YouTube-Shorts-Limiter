@@ -1,7 +1,7 @@
 {
-  "name": "youtube-shorts-limiter",
-  "version": "0.1.0",
-  "description": "A Chrome MV3 extension that limits YouTube Shorts watch time.",
+  "name": "youtube-limiter",
+  "version": "0.2.0",
+  "description": "A Chrome MV3 extension that limits YouTube and YouTube Shorts watch time.",
   "type": "module",
   "packageManager": "pnpm@10.33.4",
   "engines": {
@@ -23,13 +23,24 @@
     "quality": "pnpm typecheck && pnpm lint && pnpm test && pnpm build"
   },
   "dependencies": {
+    "@radix-ui/react-progress": "^1.1.8",
+    "lucide-react": "^1.16.0",
+    "react": "^19.2.6",
+    "react-dom": "^19.2.6",
     "zod": "^4.2.1"
   },
   "devDependencies": {
     "@eslint/js": "^9.39.2",
+    "@testing-library/jest-dom": "^6.9.1",
+    "@testing-library/react": "^16.3.2",
+    "@testing-library/user-event": "^14.6.1",
     "@types/chrome": "^0.1.6",
+    "@types/react": "^19.2.15",
+    "@types/react-dom": "^19.2.3",
+    "@wxt-dev/module-react": "^1.2.2",
     "eslint": "^9.39.2",
     "eslint-config-prettier": "^10.1.8",
+    "jsdom": "^29.1.1",
     "prettier": "^3.7.4",
     "typescript": "^5.9.3",
     "typescript-eslint": "^8.50.0",

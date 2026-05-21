@@ -1,14 +1,14 @@
 import { describe, expect, it } from "vitest";
+import type { ActiveTabOutputDto } from "@/app/interfaces/browser/active-tab/dto";
 import type { ActiveTab } from "@/app/interfaces/browser/active-tab/interface";
-import type { ActiveTabDto } from "@/app/interfaces/browser/active-tab/dto";
 import type { TabBlocker } from "@/app/interfaces/browser/tab-blocker/interface";
 import type { Clock } from "@/app/interfaces/clock/interface";
 import type { Logger } from "@/app/interfaces/logger/interface";
 import type { SettingsRepository } from "@/app/interfaces/storage/settings/interface";
 import type { UsageStateRepository } from "@/app/interfaces/storage/usage-state/interface";
 import { TickActiveTabError } from "@/app/interfaces/use-cases/tick-active-tab/error";
-import { ShortsUrlDetectorService } from "@/app/services/shorts-url-detector/service";
 import { WatchLimitPolicyService } from "@/app/services/watch-limit-policy/service";
+import { YouTubeUrlDetectorService } from "@/app/services/youtube-url-detector/service";
 import { TickActiveTabUseCase } from "@/app/use-cases/tick-active-tab/usecase";
 import type { UsageState } from "@/domain/entities/UsageState";
 import type { WatchPolicy } from "@/domain/entities/WatchPolicy";
@@ -18,103 +18,135 @@ describe("TickActiveTabUseCase", () => {
     const dependencies = createDependencies();
     dependencies.activeTab.tab = null;
     dependencies.usageStateRepository.state = {
-      usedMs: 200,
-      lastTickAtMs: 1_000,
-      blockedUntilMs: null,
+      shorts: { usedMs: 100, lastTickAtMs: 1_000, blockedUntilMs: null },
+      youtube: { usedMs: 200, lastTickAtMs: 1_000, blockedUntilMs: null },
     };
 
     await dependencies.useCase.execute();
 
     expect(dependencies.tabBlocker.blockedTabIds).toEqual([]);
     expect(dependencies.usageStateRepository.savedStates.at(-1)).toEqual({
-      usedMs: 200,
-      lastTickAtMs: null,
-      blockedUntilMs: null,
+      shorts: { usedMs: 100, lastTickAtMs: null, blockedUntilMs: null },
+      youtube: { usedMs: 200, lastTickAtMs: null, blockedUntilMs: null },
     });
   });
 
-  it("clears last tick and does not block for non-Shorts URLs", async () => {
+  it("does not block for non-YouTube URLs", async () => {
     const dependencies = createDependencies();
-    dependencies.activeTab.tab = { id: 1, url: "https://www.youtube.com/watch?v=abc" };
-    dependencies.usageStateRepository.state = {
-      usedMs: 200,
-      lastTickAtMs: 1_000,
-      blockedUntilMs: null,
-    };
+    dependencies.activeTab.tab = { id: 1, url: "https://example.com/" };
 
     await dependencies.useCase.execute();
 
     expect(dependencies.tabBlocker.blockedTabIds).toEqual([]);
-    expect(dependencies.usageStateRepository.savedStates.at(-1)?.lastTickAtMs).toBeNull();
   });
 
-  it("saves updated state and does not block when Shorts are under limit", async () => {
+  it("updates only YouTube for ordinary YouTube under limit", async () => {
+    const dependencies = createDependencies();
+    dependencies.activeTab.tab = { id: 1, url: "https://www.youtube.com/watch?v=abc" };
+    dependencies.clock.currentMs = 2_000;
+    dependencies.usageStateRepository.state = {
+      shorts: { usedMs: 100, lastTickAtMs: 1_000, blockedUntilMs: null },
+      youtube: { usedMs: 100, lastTickAtMs: 1_000, blockedUntilMs: null },
+    };
+
+    await dependencies.useCase.execute();
+
+    expect(dependencies.usageStateRepository.savedStates.at(-1)).toEqual({
+      shorts: { usedMs: 100, lastTickAtMs: null, blockedUntilMs: null },
+      youtube: { usedMs: 1_100, lastTickAtMs: 2_000, blockedUntilMs: null },
+    });
+    expect(dependencies.tabBlocker.blockedTabIds).toEqual([]);
+  });
+
+  it("updates Shorts and YouTube for Shorts under limit", async () => {
     const dependencies = createDependencies();
     dependencies.activeTab.tab = { id: 1, url: "https://www.youtube.com/shorts/abc" };
     dependencies.clock.currentMs = 2_000;
     dependencies.usageStateRepository.state = {
-      usedMs: 100,
-      lastTickAtMs: 1_000,
-      blockedUntilMs: null,
+      shorts: { usedMs: 100, lastTickAtMs: 1_000, blockedUntilMs: null },
+      youtube: { usedMs: 200, lastTickAtMs: 1_000, blockedUntilMs: null },
     };
-    dependencies.settingsRepository.settings = { allowedMs: 5_000, cooldownMs: 10_000 };
 
     await dependencies.useCase.execute();
 
     expect(dependencies.usageStateRepository.savedStates.at(-1)).toEqual({
-      usedMs: 1_100,
-      lastTickAtMs: 2_000,
-      blockedUntilMs: null,
+      shorts: { usedMs: 1_100, lastTickAtMs: 2_000, blockedUntilMs: null },
+      youtube: { usedMs: 1_200, lastTickAtMs: 2_000, blockedUntilMs: null },
     });
     expect(dependencies.tabBlocker.blockedTabIds).toEqual([]);
   });
 
-  it("saves cooldown state and blocks when Shorts are over limit", async () => {
+  it("blocks Shorts when Shorts limit is exceeded", async () => {
     const dependencies = createDependencies();
     dependencies.activeTab.tab = { id: 7, url: "https://www.youtube.com/shorts/abc" };
     dependencies.clock.currentMs = 2_000;
     dependencies.usageStateRepository.state = {
-      usedMs: 900,
-      lastTickAtMs: 1_000,
-      blockedUntilMs: null,
+      shorts: { usedMs: 9_900, lastTickAtMs: 1_000, blockedUntilMs: null },
+      youtube: { usedMs: 200, lastTickAtMs: 1_000, blockedUntilMs: null },
     };
-    dependencies.settingsRepository.settings = { allowedMs: 1_000, cooldownMs: 10_000 };
 
     await dependencies.useCase.execute();
 
-    expect(dependencies.usageStateRepository.savedStates.at(-1)).toEqual({
+    expect(dependencies.usageStateRepository.savedStates.at(-1)?.shorts).toEqual({
       usedMs: 0,
       lastTickAtMs: null,
-      blockedUntilMs: 12_000,
+      blockedUntilMs: 62_000,
     });
     expect(dependencies.tabBlocker.blockedTabIds).toEqual([7]);
   });
 
-  it("blocks during cooldown", async () => {
+  it("blocks ordinary YouTube when YouTube limit is exceeded", async () => {
     const dependencies = createDependencies();
-    dependencies.activeTab.tab = { id: 7, url: "https://www.youtube.com/shorts/abc" };
+    dependencies.activeTab.tab = { id: 7, url: "https://www.youtube.com/feed/subscriptions" };
     dependencies.clock.currentMs = 2_000;
     dependencies.usageStateRepository.state = {
-      usedMs: 0,
-      lastTickAtMs: null,
-      blockedUntilMs: 12_000,
+      shorts: { usedMs: 0, lastTickAtMs: null, blockedUntilMs: null },
+      youtube: { usedMs: 19_900, lastTickAtMs: 1_000, blockedUntilMs: null },
     };
 
     await dependencies.useCase.execute();
 
+    expect(dependencies.usageStateRepository.savedStates.at(-1)?.youtube).toEqual({
+      usedMs: 0,
+      lastTickAtMs: null,
+      blockedUntilMs: 122_000,
+    });
+    expect(dependencies.tabBlocker.blockedTabIds).toEqual([7]);
+  });
+
+  it("blocks Shorts when YouTube limit is exceeded", async () => {
+    const dependencies = createDependencies();
+    dependencies.activeTab.tab = { id: 7, url: "https://www.youtube.com/shorts/abc" };
+    dependencies.clock.currentMs = 2_000;
+    dependencies.usageStateRepository.state = {
+      shorts: { usedMs: 100, lastTickAtMs: 1_000, blockedUntilMs: null },
+      youtube: { usedMs: 19_900, lastTickAtMs: 1_000, blockedUntilMs: null },
+    };
+
+    await dependencies.useCase.execute();
+
+    expect(dependencies.usageStateRepository.savedStates.at(-1)?.youtube.blockedUntilMs).toBe(
+      122_000,
+    );
     expect(dependencies.tabBlocker.blockedTabIds).toEqual([7]);
   });
 
   it("reads current settings on each execution", async () => {
     const dependencies = createDependencies();
-    dependencies.activeTab.tab = { id: 7, url: "https://www.youtube.com/shorts/abc" };
+    dependencies.activeTab.tab = { id: 7, url: "https://www.youtube.com/watch?v=abc" };
     dependencies.clock.currentMs = 1_000;
-    dependencies.settingsRepository.settings = { allowedMs: 5_000, cooldownMs: 10_000 };
+    dependencies.settingsRepository.settings = {
+      shorts: { allowedMs: 10_000, cooldownMs: 60_000 },
+      youtube: { allowedMs: 20_000, cooldownMs: 120_000 },
+    };
 
     await dependencies.useCase.execute();
 
     dependencies.clock.currentMs = 2_000;
-    dependencies.settingsRepository.settings = { allowedMs: 500, cooldownMs: 10_000 };
+    dependencies.settingsRepository.settings = {
+      shorts: { allowedMs: 10_000, cooldownMs: 60_000 },
+      youtube: { allowedMs: 500, cooldownMs: 120_000 },
+    };
 
     await dependencies.useCase.execute();
 
@@ -157,7 +189,7 @@ function createDependencies(): TickDependencies {
       activeTab,
       usageStateRepository,
       settingsRepository,
-      new ShortsUrlDetectorService(),
+      new YouTubeUrlDetectorService(),
       new WatchLimitPolicyService(),
       clock,
       tabBlocker,
@@ -167,10 +199,10 @@ function createDependencies(): TickDependencies {
 }
 
 class FakeActiveTab implements ActiveTab {
-  tab: ActiveTabDto | null = { id: 1, url: "https://www.youtube.com/shorts/abc" };
+  tab: ActiveTabOutputDto | null = { id: 1, url: "https://www.youtube.com/shorts/abc" };
   shouldThrow = false;
 
-  getActiveTab(): Promise<ActiveTabDto | null> {
+  getActiveTab(): Promise<ActiveTabOutputDto | null> {
     if (this.shouldThrow) {
       return Promise.reject(new Error("active tab failed"));
     }
@@ -180,7 +212,7 @@ class FakeActiveTab implements ActiveTab {
 }
 
 class FakeUsageStateRepository implements UsageStateRepository {
-  state: UsageState = { usedMs: 0, lastTickAtMs: null, blockedUntilMs: null };
+  state: UsageState = createEmptyUsageState();
   savedStates: UsageState[] = [];
 
   get(): Promise<UsageState> {
@@ -195,7 +227,10 @@ class FakeUsageStateRepository implements UsageStateRepository {
 }
 
 class FakeSettingsRepository implements SettingsRepository {
-  settings: WatchPolicy = { allowedMs: 5_000, cooldownMs: 10_000 };
+  settings: WatchPolicy = {
+    shorts: { allowedMs: 10_000, cooldownMs: 60_000 },
+    youtube: { allowedMs: 20_000, cooldownMs: 120_000 },
+  };
   getCount = 0;
 
   get(): Promise<WatchPolicy> {
@@ -241,4 +276,11 @@ class FakeLogger implements Logger {
     void _message;
     void _meta;
   }
+}
+
+function createEmptyUsageState(): UsageState {
+  return {
+    shorts: { usedMs: 0, lastTickAtMs: null, blockedUntilMs: null },
+    youtube: { usedMs: 0, lastTickAtMs: null, blockedUntilMs: null },
+  };
 }

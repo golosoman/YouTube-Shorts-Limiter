@@ -1,4 +1,4 @@
-export interface ActiveTabDto {
+export interface ActiveTabOutputDto {
   readonly id: number;
   readonly url: string;
 }

@@ -2,9 +2,10 @@
 
 ## Project Purpose
 
-- This browser extension limits YouTube Shorts watch time.
-- Ordinary YouTube must not be blocked.
-- Allowed duration and cooldown duration are changed through the popup.
+- This browser extension limits YouTube Shorts watch time and general YouTube watch time.
+- Ordinary YouTube is available until the general YouTube budget reaches its limit.
+- Shorts time counts toward both the Shorts budget and the general YouTube budget.
+- Allowed durations and cooldown durations are changed through the popup.
 - Usage state and settings are stored in `chrome.storage.local`.
 - Manifest V3 background service workers are not persistent processes.
 
@@ -13,6 +14,8 @@
 - TypeScript
 - WXT
 - Chrome Manifest V3
+- React
+- Radix UI primitives
 - Vitest
 - ESLint flat config
 - Prettier
@@ -52,10 +55,19 @@
 
 - Wires dependencies in `createAppContainer.ts`.
 
+`presentation/`
+
+- Contains React UI components, view-model mappers, formatting helpers, and CSS.
+- May import app DTO types and small domain value objects for display formatting.
+- May import public config from `@/config` for UI constraints and route values.
+- Never imports infrastructure, composition, entrypoints, or Chrome APIs.
+- Contains no business rules for limiting, cooldowns, or URL classification.
+
 `entrypoints/`
 
 - WXT entrypoints.
-- Only event wiring and use-case calls.
+- Background entrypoint contains only event wiring and use-case calls.
+- Popup and blocked page entrypoints only mount React apps and pass use-case callbacks.
 - No business logic.
 
 `envs/`
@@ -87,14 +99,25 @@ Shared, domain, and top-level files use full names:
 - `DurationMs.ts`
 - `TimestampMs.ts`
 - `ShortsUrl.ts`
+- `WatchScope.ts`
 - `createAppContainer.ts`
 - `handleError.ts`
+
+Presentation component files use descriptive names such as:
+
+- `PopupApp.tsx`
+- `BlockedApp.tsx`
+- `ScopeCard.tsx`
+- `SettingsForm.tsx`
+- `StatusChip.tsx`
 
 ## Dependency Rules
 
 - `domain` never imports `app`, `infrastructure`, `composition`, `entrypoints`, `config`, or `envs`.
 - `app` never imports `infrastructure`.
 - `infrastructure` implements `app/interfaces`.
+- `presentation` never imports `infrastructure`, `composition`, or `entrypoints`.
+- `presentation` does not access `chrome.*`.
 - Entrypoints do not contain business logic.
 - `import.meta.env` is allowed only in `src/envs`.
 - `chrome.*` is allowed only in `infrastructure` and `entrypoints`.
@@ -122,8 +145,10 @@ const TWO = 2;
 
 Do create meaningful constants/config values like:
 
-- `initialAllowedDuration`
-- `initialCooldownDuration`
+- `initial.shorts.allowedDuration`
+- `initial.shorts.cooldownDuration`
+- `initial.youtube.allowedDuration`
+- `initial.youtube.cooldownDuration`
 - `allowedDuration.min`
 - `allowedDuration.max`
 - `alarmPeriod`
@@ -142,6 +167,16 @@ Do create meaningful constants/config values like:
 - Do not create `defaults.ts`.
 - Do not create `config/env.ts`.
 - Use `config/index.ts` as the single public config import.
+
+## DTO Naming Rules
+
+- External boundary DTOs use explicit direction suffixes:
+  - `SomethingInputDto`
+  - `SomethingOutputDto`
+- Use-case input and output types follow this rule.
+- Browser adapter output types follow this rule, for example `ActiveTabOutputDto`.
+- Persisted storage schema DTOs should either use explicit output naming or a clearly schema-oriented name.
+- React UI types are not DTOs; use `ViewModel` suffix for presentation data.
 
 ## Use-case Style
 
@@ -177,12 +212,16 @@ Do create meaningful constants/config values like:
 
 ## Popup / UI Style
 
-- Popup is a presentation boundary.
-- Popup calls use-cases.
-- Popup contains no business rules.
-- DOM selectors should be named constants/objects if repeated or non-obvious.
+- Popup is a presentation boundary built with React.
+- Entrypoint creates the app container and passes use-case callbacks into React.
+- React components receive props/view-models and contain no business rules.
+- DOM access belongs in the mount shell only when locating the React root element.
 - Settings are changed through `UpdateSettingsUseCase`.
 - Status is read through `GetStatusUseCase`.
+- Presentation can show scope cards for `shorts` and `youtube`, but limit decisions stay in app/domain services.
+- Use Radix primitives selectively when they provide accessibility or interaction behavior.
+- Do not add Tailwind, shadcn, or a styled component kit unless the UI has grown enough to justify the coupling.
+- Keep visual styling in CSS with shared tokens under `src/presentation/shared`.
 
 ## Testing Rules
 
@@ -190,6 +229,8 @@ Do create meaningful constants/config values like:
 - Tests should avoid Chrome API unless mocking infrastructure.
 - App services and app use-cases are primary test targets.
 - Mappers must test corrupted persisted data.
+- Mappers must test storage migrations when persisted DTO shape changes.
+- Presentation components should have jsdom tests when their behavior or conditional rendering changes.
 - Every new use-case needs tests.
 - Test literals are allowed when they are meaningful test data.
 
@@ -203,6 +244,7 @@ pnpm lint
 pnpm test
 pnpm build
 pnpm quality
+pnpm format:check
 ```
 
 ## Before Submitting Changes
@@ -214,7 +256,9 @@ pnpm quality
 - No business magic values added.
 - No layer dependency violations.
 - No raw `chrome.*` in `app` or `domain`.
+- No raw `chrome.*` in `presentation`.
 - No raw `import.meta.env` outside `envs`.
+- Boundary DTOs use `InputDto` or `OutputDto` suffixes.
 - README updated if behavior changed.
 - AGENTS.md updated if project style changed.
 
@@ -246,6 +290,15 @@ pnpm quality
 1. Add it to the correct `config/*.config.ts` file.
 2. Export through `config/index.ts`.
 3. Never import config internals directly unless there is a strong reason.
+
+### Add a new presentation component
+
+1. Put shared primitives or helpers under `src/presentation/shared`.
+2. Put popup-specific components under `src/presentation/popup`.
+3. Put blocked-page components under `src/presentation/blocked`.
+4. Pass data as props or view-models.
+5. Keep Chrome API calls and business rules out of React components.
+6. Add jsdom tests for behavior, conditional rendering, or form submission.
 
 ## Strictness
 

@@ -2,9 +2,9 @@ import type { ActiveTab } from "@/app/interfaces/browser/active-tab/interface";
 import type { TabBlocker } from "@/app/interfaces/browser/tab-blocker/interface";
 import type { Clock } from "@/app/interfaces/clock/interface";
 import type { Logger } from "@/app/interfaces/logger/interface";
-import type { ShortsUrlDetector } from "@/app/interfaces/services/shorts-url-detector/interface";
 import type { UsageAccounting } from "@/app/interfaces/services/usage-accounting/interface";
 import type { WatchLimitPolicy } from "@/app/interfaces/services/watch-limit-policy/interface";
+import type { YouTubeUrlDetector } from "@/app/interfaces/services/youtube-url-detector/interface";
 import type { SettingsRepository } from "@/app/interfaces/storage/settings/interface";
 import type { UsageStateRepository } from "@/app/interfaces/storage/usage-state/interface";
 import type { GetStatus } from "@/app/interfaces/use-cases/get-status/interface";
@@ -13,9 +13,9 @@ import type { ResetUsage } from "@/app/interfaces/use-cases/reset-usage/interfac
 import type { TickActiveTab } from "@/app/interfaces/use-cases/tick-active-tab/interface";
 import type { UpdateSettings } from "@/app/interfaces/use-cases/update-settings/interface";
 import { SettingsValidatorService } from "@/app/services/settings-validator/service";
-import { ShortsUrlDetectorService } from "@/app/services/shorts-url-detector/service";
 import { UsageAccountingService } from "@/app/services/usage-accounting/service";
 import { WatchLimitPolicyService } from "@/app/services/watch-limit-policy/service";
+import { YouTubeUrlDetectorService } from "@/app/services/youtube-url-detector/service";
 import { GetStatusUseCase } from "@/app/use-cases/get-status/usecase";
 import { HandleNavigationUseCase } from "@/app/use-cases/handle-navigation/usecase";
 import { ResetUsageUseCase } from "@/app/use-cases/reset-usage/usecase";
@@ -42,7 +42,7 @@ export function createAppContainer(): AppContainer {
   const tabBlocker: TabBlocker = new ChromeTabBlockerService();
   const usageStateRepository: UsageStateRepository = new ChromeUsageStateRepository();
   const settingsRepository: SettingsRepository = new ChromeSettingsRepository();
-  const shortsUrlDetector: ShortsUrlDetector = new ShortsUrlDetectorService();
+  const youtubeUrlDetector: YouTubeUrlDetector = new YouTubeUrlDetectorService();
   const watchLimitPolicy: WatchLimitPolicy = new WatchLimitPolicyService();
   const usageAccounting: UsageAccounting = new UsageAccountingService();
   const settingsValidator = new SettingsValidatorService();
@@ -53,7 +53,7 @@ export function createAppContainer(): AppContainer {
     activeTab,
     usageStateRepository,
     settingsRepository,
-    shortsUrlDetector,
+    youtubeUrlDetector,
     watchLimitPolicy,
     clock,
     tabBlocker,

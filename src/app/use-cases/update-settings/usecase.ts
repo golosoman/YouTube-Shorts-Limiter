@@ -14,8 +14,14 @@ export class UpdateSettingsUseCase implements UpdateSettings {
   async execute(input: UpdateSettingsInputDto): Promise<void> {
     try {
       const settings = this.settingsValidator.validate({
-        allowedMs: DurationMs.fromMinutes(input.allowedMinutes).value,
-        cooldownMs: DurationMs.fromMinutes(input.cooldownMinutes).value,
+        shorts: {
+          allowedMs: DurationMs.fromMinutes(input.shortsAllowedMinutes).value,
+          cooldownMs: DurationMs.fromMinutes(input.shortsCooldownMinutes).value,
+        },
+        youtube: {
+          allowedMs: DurationMs.fromMinutes(input.youtubeAllowedMinutes).value,
+          cooldownMs: DurationMs.fromMinutes(input.youtubeCooldownMinutes).value,
+        },
       });
 
       await this.settingsRepository.save(settings);

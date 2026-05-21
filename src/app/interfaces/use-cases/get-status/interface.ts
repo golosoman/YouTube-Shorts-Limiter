@@ -1,5 +1,5 @@
-import type { GetStatusResultDto } from "./dto";
+import type { GetStatusOutputDto } from "./dto";
 
 export interface GetStatus {
-  execute(): Promise<GetStatusResultDto>;
+  execute(): Promise<GetStatusOutputDto>;
 }
