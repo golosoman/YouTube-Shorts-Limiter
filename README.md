@@ -55,6 +55,7 @@ Not supported or blocked in the MVP:
 - Separate configurable Shorts and YouTube budgets.
 - Separate cooldown duration for each budget.
 - Shorts time counts against both budgets.
+- Active YouTube tabs and audible background YouTube playback count toward the budget.
 - Polished React popup dashboard with progress bars, status chip, and clear settings.
 - Headless Radix primitives where accessibility behavior is useful.
 - Custom CSS tokens instead of a heavy styled UI kit.
@@ -208,6 +209,7 @@ It does not need an external backend to enforce the limit.
 - Other browsers, devices, and browser profiles are not controlled by this extension.
 - The MVP does not use `declarativeNetRequest` strict blocking mode.
 - `music.youtube.com` is not controlled by this MVP.
+- Muted background playback may require a future content-script based detector.
 - Alarm timing can be delayed by Chrome, especially after device sleep.
 
 ## Contributing

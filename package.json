@@ -1,6 +1,6 @@
 {
   "name": "youtube-limiter",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "A Chrome MV3 extension that limits YouTube and YouTube Shorts watch time.",
   "type": "module",
   "packageManager": "pnpm@10.33.4",

@@ -1,5 +1,5 @@
-import type { ActiveTab } from "@/app/interfaces/browser/active-tab/interface";
 import type { TabBlocker } from "@/app/interfaces/browser/tab-blocker/interface";
+import type { WatchTabs } from "@/app/interfaces/browser/watch-tabs/interface";
 import type { Clock } from "@/app/interfaces/clock/interface";
 import type { Logger } from "@/app/interfaces/logger/interface";
 import type { UsageAccounting } from "@/app/interfaces/services/usage-accounting/interface";
@@ -21,8 +21,8 @@ import { HandleNavigationUseCase } from "@/app/use-cases/handle-navigation/useca
 import { ResetUsageUseCase } from "@/app/use-cases/reset-usage/usecase";
 import { TickActiveTabUseCase } from "@/app/use-cases/tick-active-tab/usecase";
 import { UpdateSettingsUseCase } from "@/app/use-cases/update-settings/usecase";
-import { ChromeActiveTabService } from "@/infrastructure/browser/active-tab/service";
 import { ChromeTabBlockerService } from "@/infrastructure/browser/tab-blocker/service";
+import { ChromeWatchTabsService } from "@/infrastructure/browser/watch-tabs/service";
 import { SystemClockService } from "@/infrastructure/clock/service";
 import { ConsoleLoggerService } from "@/infrastructure/logger/service";
 import { ChromeSettingsRepository } from "@/infrastructure/storage/settings/repository";
@@ -38,7 +38,7 @@ export interface AppContainer {
 }
 
 export function createAppContainer(): AppContainer {
-  const activeTab: ActiveTab = new ChromeActiveTabService();
+  const watchTabs: WatchTabs = new ChromeWatchTabsService();
   const tabBlocker: TabBlocker = new ChromeTabBlockerService();
   const usageStateRepository: UsageStateRepository = new ChromeUsageStateRepository();
   const settingsRepository: SettingsRepository = new ChromeSettingsRepository();
@@ -50,7 +50,7 @@ export function createAppContainer(): AppContainer {
   const logger: Logger = new ConsoleLoggerService();
 
   const tickActiveTab = new TickActiveTabUseCase(
-    activeTab,
+    watchTabs,
     usageStateRepository,
     settingsRepository,
     youtubeUrlDetector,

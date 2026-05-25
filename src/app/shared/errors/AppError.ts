@@ -1,5 +1,6 @@
 export const AppErrorCode = {
   ActiveTabReadFailed: "active-tab.read-failed",
+  WatchTabsReadFailed: "watch-tabs.read-failed",
   TabBlockFailed: "tab-block.failed",
   UsageStateReadFailed: "usage-state.read-failed",
   UsageStateWriteFailed: "usage-state.write-failed",
